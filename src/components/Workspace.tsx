@@ -8,7 +8,6 @@ import {
   type RunResult,
 } from '../lib/compiler';
 import { clearDraft, createStore, loadDraft, recordProgress, saveDraft } from '../lib/local-store';
-import { describeVerdict, idempotencyKey, isSystemFault, type Verdict } from '../lib/submissions';
 
 /**
  * The coding workspace: editor, Hard Check, Run, and Submit.
@@ -23,9 +22,10 @@ import { describeVerdict, idempotencyKey, isSystemFault, type Verdict } from '..
  *
  * # What talks to the network
  *
- * Typing does not. Checking does not, with the mock backend. Only **Submit**
- * reaches the control plane, and even then it sends a content identifier rather
- * than the source (invariant D). Drafts are saved locally, debounced.
+ * Typing does not. Checking and running do not with the mock backend. A remote
+ * backend may send code to its configured compiler endpoint. Submission remains
+ * disabled until the data-plane upload and authenticated control-plane flow are
+ * wired; inventing a CID without uploading bytes would violate invariant D.
  */
 
 /** One public test, shown to the reader. */
@@ -49,7 +49,7 @@ interface Props {
   progressKey?: string;
 }
 
-type Phase = 'idle' | 'checking' | 'running' | 'submitting';
+type Phase = 'idle' | 'checking' | 'running';
 
 const DRAFT_DEBOUNCE_MS = 600;
 
@@ -72,7 +72,6 @@ export default function Workspace({
   const [committed, setCommitted] = useState(false);
   const [result, setResult] = useState<CheckResult | RunResult | null>(null);
   const [outage, setOutage] = useState<string | null>(null);
-  const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
   // Restore a draft on mount. Doing it in an effect rather than in the initial
@@ -105,7 +104,6 @@ export default function Workspace({
   const check = useCallback(async () => {
     setPhase('checking');
     setOutage(null);
-    setVerdict(null);
     try {
       const outcome = await backend.check(source);
       setResult(outcome);
@@ -136,36 +134,6 @@ export default function Workspace({
     [backend, source],
   );
 
-  const submit = useCallback(async () => {
-    if (!trial || apiBase === '') return;
-    setPhase('submitting');
-    setOutage(null);
-    try {
-      // The source goes to the data plane first; the API receives only its CID.
-      const digest = await sha256Hex(source);
-      const response = await fetch(`${apiBase}/api/v1/submissions`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          trial,
-          source_cid: `b3:${digest}`,
-          idempotency_key: idempotencyKey(trial, source),
-        }),
-      });
-      if (!response.ok) throw new BackendUnavailable(`the API returned ${response.status}`);
-      // The real implementation subscribes to the SSE stream here; until the
-      // judge is wired into this deployment we do not pretend to have a verdict.
-      setOutage(null);
-      setVerdict(null);
-    } catch (error) {
-      setOutage(
-        error instanceof BackendUnavailable ? error.message : 'the submission could not be created',
-      );
-    } finally {
-      setPhase('idle');
-    }
-  }, [trial, apiBase, source]);
-
   const busy = phase !== 'idle';
 
   return (
@@ -185,11 +153,10 @@ export default function Workspace({
           <button
             type="button"
             data-variant="primary"
-            onClick={submit}
-            disabled={busy || apiBase === ''}
-            title={apiBase === '' ? 'No API is configured in this build' : undefined}
+            disabled
+            title="Submission needs authenticated artifact upload and judge streaming, which are not connected yet"
           >
-            {phase === 'submitting' ? 'Submitting…' : 'Submit'}
+            Submit
           </button>
         )}
         <button
@@ -304,27 +271,6 @@ export default function Workspace({
         </>
       )}
 
-      {verdict && (
-        <section
-          className="panel"
-          aria-labelledby="verdict-title"
-          data-system-fault={isSystemFault(verdict) ? 'true' : undefined}
-        >
-          <div className="panel__header">
-            <span id="verdict-title">Result</span>
-            <span className={verdict === 'AC' ? 'badge badge--success' : 'badge badge--error'}>
-              {verdict}
-            </span>
-          </div>
-          <div className="panel__body">
-            <p style={{ margin: 0, fontWeight: 500 }}>{describeVerdict(verdict).label}</p>
-            <p style={{ margin: 'var(--space-2) 0 0', color: 'var(--ink-muted)' }}>
-              {describeVerdict(verdict).detail}
-            </p>
-          </div>
-        </section>
-      )}
-
       {publicTests.length > 0 && (
         <section className="panel" aria-labelledby="tests-title">
           <div className="panel__header">
@@ -377,15 +323,6 @@ export default function Workspace({
       `}</style>
     </div>
   );
-}
-
-/** Hex SHA-256 of a string, using the platform digest. */
-async function sha256Hex(value: string): Promise<string> {
-  const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
 }
 
 /** A short relative time, without pulling in a formatting library. */

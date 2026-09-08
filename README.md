@@ -84,8 +84,11 @@ pnpm test
 pnpm build          # astro build + build-invariant checks
 ```
 
-`PUBLIC_RUSTLY_API` points the workspace at a real compiler and enables Submit.
-Unset, the mock backend runs and says so.
+`PUBLIC_RUSTLY_API` points the workspace at a deployment implementing the remote
+playground compiler contract. The current core service does not expose those
+endpoints yet, so the production Pages build leaves it unset and the labelled
+mock backend runs. Submit stays disabled until identity, artifact upload, and
+the verdict stream are connected end to end.
 
 ## Layout
 
