@@ -152,7 +152,6 @@ export interface OssExample {
 /** A Trial test case. */
 export interface TestCase {
   id: string;
-  visibility: 'public' | 'hidden';
   stdin: string;
   expected_stdout: string;
 }
@@ -169,7 +168,6 @@ export interface Trial {
   version: number;
   statement: string;
   starter: string;
-  reference_solution: string;
   starter_expect: ExpectedOutcome;
   tests: TestCase[];
 }
@@ -178,7 +176,7 @@ export interface Trial {
 export interface TrialWithFiles extends Trial {
   statementMarkdown: string;
   starterCode: string;
-  /** Public tests only. Hidden tests never reach a build artifact. */
+  /** Learner-visible tests bundled with the public content snapshot. */
   publicTests: TestCase[];
 }
 
@@ -274,9 +272,8 @@ export function lessonWithBody(id: string): LessonWithBody {
 /**
  * A Trial with its statement and starter code.
  *
- * Hidden tests are stripped here, not in the template. A build artifact must
- * never contain them: everything the browser can read is public, and a
- * "hidden" test in a static bundle is simply a published test.
+ * Trusted evaluation is absent from the public content repository. Everything
+ * loaded here is learner-visible by construction.
  */
 export function trialWithFiles(slug: string): TrialWithFiles {
   const trial = trials().find((t) => t.slug === slug);
@@ -285,9 +282,7 @@ export function trialWithFiles(slug: string): TrialWithFiles {
     ...trial,
     statementMarkdown: text(raw, `/trials/${slug}/${trial.statement}`),
     starterCode: text(rust, `/trials/${slug}/${trial.starter}`),
-    publicTests: trial.tests.filter((t) => t.visibility === 'public'),
-    // Deliberately shadowed so a template cannot reach the hidden cases.
-    tests: trial.tests.filter((t) => t.visibility === 'public'),
+    publicTests: trial.tests,
   };
 }
 

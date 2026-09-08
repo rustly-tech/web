@@ -9,7 +9,7 @@
  *
  * Run against `dist/` after `astro build`.
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const DIST = 'dist';
@@ -38,50 +38,18 @@ if (html.length === 0) fail('no HTML was built');
 
 // --- Hidden test material must never reach a build artifact ------------------
 //
-// Everything in dist/ is public by definition. A "hidden" test in a static
-// bundle is simply a published test, and the whole judging model rests on that
-// not happening.
+// Everything in the vendored snapshot and dist/ is public by definition.
+// Trusted evaluation must be absent at the source boundary, rather than
+// filtered during a browser build.
 const trialFiles = walk('src/data/content/trials').filter((f) => f.endsWith('trial.json'));
 for (const file of trialFiles) {
   const trial = JSON.parse(readFileSync(file, 'utf8'));
-  const hidden = trial.tests.filter((t) => t.visibility === 'hidden');
-  if (hidden.length === 0) {
-    notes.push(`${trial.slug}: no hidden tests to check`);
-    continue;
-  }
-  for (const test of hidden) {
-    for (const [label, value] of [
-      ['id', test.id],
-      ['stdin', test.stdin.trim()],
-      ['expected output', test.expected_stdout.trim()],
-    ]) {
-      if (value.length < 4) continue;
-      const leaked = [...html, ...js].filter((f) => readFileSync(f, 'utf8').includes(value));
-      if (leaked.length > 0) {
-        fail(
-          `hidden test ${label} from ${trial.slug}/${test.id} appears in ${leaked
-            .map((f) => relative(DIST, f))
-            .join(', ')}`,
-        );
-      }
-    }
-  }
-}
-
-// Reference solutions are answers. They must not ship either.
-for (const file of trialFiles) {
-  const trial = JSON.parse(readFileSync(file, 'utf8'));
-  const solution = readFileSync(join(file, '..', trial.reference_solution), 'utf8');
-  const signature = solution
-    .split('\n')
-    .find((line) => line.trim().startsWith('fn ') && !line.includes('main'));
-  if (!signature) continue;
-  const leaked = html.filter((f) => readFileSync(f, 'utf8').includes(signature.trim()));
-  if (leaked.length > 0) {
-    fail(
-      `the reference solution for ${trial.slug} appears in ${leaked.map((f) => relative(DIST, f)).join(', ')}`,
-    );
-  }
+  if ('reference_solution' in trial)
+    fail(`${trial.slug}: public manifest names a reference solution`);
+  if (trial.tests.some((test) => test.visibility === 'hidden'))
+    fail(`${trial.slug}: public manifest contains a hidden test`);
+  const solution = join(file, '..', 'solution.rs');
+  if (existsSync(solution)) fail(`${trial.slug}: public snapshot contains solution.rs`);
 }
 
 // --- Static-first ------------------------------------------------------------
