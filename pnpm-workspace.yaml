@@ -12,3 +12,8 @@ packages:
 # reviewed; adding to it is a supply-chain decision.
 allowBuilds:
   esbuild: true
+
+# Monaco's declared DOMPurify range can otherwise retain a vulnerable lockfile
+# entry. Keep the transitive sanitizer on the patched floor.
+overrides:
+  dompurify: 3.4.13
