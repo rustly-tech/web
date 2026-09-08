@@ -1,0 +1,66 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Rankings" section="rankings" description="Global Rank, Rank, and Level.">
+  <div class="prose">
+    <h1>Rankings</h1>
+    <p class="lede">Global Rank, Rank, and Level. Nothing else.</p>
+  </div>
+
+  <section class="panel">
+    <div class="panel__header">
+      <span>Status</span>
+      <span class="badge badge--warning">PROVISIONAL MODEL</span>
+    </div>
+    <div class="panel__body prose">
+      <p>
+        The ranking model in use is <code>provisional-v0</code>, and the API says so on every
+        response. It is a difficulty-weighted sum over distinct solved Trials — deliberately simple,
+        and deliberately not presented as a validated skill rating.
+      </p>
+      <p>What it does not do, and why not yet:</p>
+      <ul>
+        <li><strong>No decay.</strong> That needs longitudinal data we do not have.</li>
+        <li>
+          <strong>No top-N weighting.</strong> Picking a coefficient today would mean inventing one and
+          calling it science.
+        </li>
+        <li><strong>No population normalisation.</strong> That needs a population.</li>
+        <li>
+          <strong>No anti-grind weighting.</strong> That needs observed grinding to calibrate against.
+        </li>
+      </ul>
+      <p>
+        It is behind a trait and every stored score records which model produced it, so replacing
+        the model is a recompute rather than a migration.
+      </p>
+      <h2>What a public profile shows</h2>
+      <p>Exactly seven things, and the list is enforced by a test:</p>
+      <ul>
+        <li>Username</li>
+        <li>Clan, if any</li>
+        <li>Global Rank</li>
+        <li>Rank</li>
+        <li>Level</li>
+        <li>Trials solved</li>
+        <li>Highest Trial milestone badge — one badge, upgraded in place</li>
+      </ul>
+      <p>
+        Deliberately absent: country and regional rankings, public performance-history graphs,
+        contribution heatmaps, course badges, stacked milestone badges, and tiered presentation.
+      </p>
+    </div>
+  </section>
+
+  <style>
+    .lede {
+      font-size: var(--step-1);
+      color: var(--ink-muted);
+      max-width: var(--measure);
+    }
+    section {
+      margin-top: var(--space-5);
+    }
+  </style>
+</Base>

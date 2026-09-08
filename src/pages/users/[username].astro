@@ -1,0 +1,86 @@
+---
+import Base from '../../layouts/Base.astro';
+
+/**
+ * The public profile.
+ *
+ * Statically built for a small set of reserved names only. Real profiles are a
+ * live read; this page exists so the *shape* is fixed in the codebase and
+ * reviewable, because that shape is a product decision rather than a layout
+ * choice.
+ */
+export function getStaticPaths() {
+  return [{ params: { username: 'example' } }];
+}
+
+const { username } = Astro.params;
+---
+
+<Base title={`@${username}`} description="A Rustly public profile.">
+  <article class="profile">
+    <header>
+      <h1>@{username}</h1>
+      <p class="lede">This is the shape of a public profile. Live data needs the API.</p>
+    </header>
+
+    <dl class="stats">
+      <div><dt>Global Rank</dt><dd>—</dd></div>
+      <div><dt>Rank</dt><dd>—</dd></div>
+      <div><dt>Level</dt><dd>—</dd></div>
+      <div><dt>Trials solved</dt><dd>—</dd></div>
+      <div><dt>Clan</dt><dd>—</dd></div>
+      <div><dt>Milestone</dt><dd>—</dd></div>
+    </dl>
+
+    <section class="panel">
+      <div class="panel__header">
+        <span>What this page will never show</span>
+      </div>
+      <div class="panel__body prose">
+        <ul style="margin-bottom: 0;">
+          <li>Country, regional, or state rankings</li>
+          <li>A public performance-history graph</li>
+          <li>A contribution heatmap</li>
+          <li>Course completion badges</li>
+          <li>Stacked milestone badges — one badge is shown, and it upgrades in place</li>
+          <li>Gold / silver / diamond tiers</li>
+        </ul>
+        <p
+          style="margin-bottom: 0; margin-top: var(--space-3); color: var(--ink-muted); font-size: 0.875rem;"
+        >
+          These are product decisions, not missing features. Adding one needs its own review.
+        </p>
+      </div>
+    </section>
+  </article>
+
+  <style>
+    .lede {
+      color: var(--ink-muted);
+      max-width: var(--measure);
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: var(--space-3);
+      margin: var(--space-5) 0;
+    }
+    .stats > div {
+      border: 1px solid var(--rule);
+      border-radius: var(--radius);
+      padding: var(--space-3);
+    }
+    .stats dt {
+      font-size: 0.8125rem;
+      color: var(--ink-muted);
+    }
+    .stats dd {
+      margin: var(--space-1) 0 0;
+      font-size: var(--step-2);
+      font-family: var(--mono);
+    }
+    section {
+      max-width: var(--measure);
+    }
+  </style>
+</Base>

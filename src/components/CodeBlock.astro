@@ -1,0 +1,32 @@
+---
+interface Props {
+  code: string;
+  caption?: string;
+  /** Shown as a small label, e.g. an expected error code. */
+  label?: string;
+  labelVariant?: 'error' | 'success' | 'warning' | 'muted';
+}
+
+const { code, caption, label, labelVariant = 'muted' } = Astro.props;
+---
+
+<figure class="panel" style="margin: 0 0 var(--space-4);">
+  {
+    (caption || label) && (
+      <figcaption class="panel__header">
+        <span>{caption}</span>
+        {label && <span class={`badge badge--${labelVariant}`}>{label}</span>}
+      </figcaption>
+    )
+  }
+  <pre><code>{code}</code></pre>
+</figure>
+
+<style>
+  pre {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+</style>

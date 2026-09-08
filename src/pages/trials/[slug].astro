@@ -1,0 +1,107 @@
+---
+import Base from '../../layouts/Base.astro';
+import Workspace from '../../components/Workspace';
+import { trials, trialWithFiles, isPublished } from '../../lib/content';
+import { renderMarkdown } from '../../lib/markdown';
+
+export function getStaticPaths() {
+  return trials()
+    .filter((trial) => isPublished(trial.lifecycle))
+    .map((trial) => ({ params: { slug: trial.slug } }));
+}
+
+const { slug } = Astro.params;
+const trial = trialWithFiles(slug!);
+const statement = renderMarkdown(trial.statementMarkdown);
+const apiBase = import.meta.env['PUBLIC_RUSTLY_API'] ?? '';
+---
+
+<Base title={trial.title} section="trials" description={trial.summary}>
+  <nav aria-label="Breadcrumb" class="crumbs">
+    <a href="/trials">Trials</a>
+    <span aria-hidden="true">/</span>
+    <span>{trial.title}</span>
+  </nav>
+
+  <header class="trial-header">
+    <div>
+      <h1>{trial.title}</h1>
+      <p class="lede">{trial.summary}</p>
+    </div>
+    <div class="cluster">
+      <span class="tag">{trial.difficulty}</span>
+      {trial.topics.map((topic) => <span class="tag">{topic}</span>)}
+      <span class="tag">v{trial.version}</span>
+    </div>
+  </header>
+
+  <div class="trial-body">
+    <article class="prose" set:html={statement} />
+
+    <section aria-labelledby="solve">
+      <h2 id="solve">Solve it</h2>
+      <Workspace
+        client:load
+        slot={`trial:${trial.slug}`}
+        starterCode={trial.starterCode}
+        ariaLabel={`Editor for ${trial.title}`}
+        publicTests={trial.publicTests}
+        trial={trial.slug}
+        apiBase={apiBase}
+        progressKey={`trial/${trial.slug}`}
+      />
+    </section>
+
+    <section aria-labelledby="solutions">
+      <h2 id="solutions">Accepted solutions</h2>
+      <!--
+        Deliberately gated. Comparing approaches after you have solved something
+        is one of the most useful things on the platform; before, it is just the
+        answer. Revealing is allowed and costs first-solve ranking credit only.
+      -->
+      <div class="empty-state">
+        <p style="margin: 0 0 var(--space-3);">
+          Other people's accepted solutions appear here once you have solved this Trial.
+        </p>
+        <p style="margin: 0; font-size: 0.875rem;">
+          You can reveal them early. That is allowed, and it costs you first-solve ranking credit
+          for this Trial — nothing else. The solve still counts, and you still earn the experience.
+        </p>
+        <p style="margin: var(--space-3) 0 0;">
+          <button
+            type="button"
+            disabled
+            title="Available once submissions are enabled in this deployment"
+          >
+            Reveal solutions
+          </button>
+        </p>
+      </div>
+    </section>
+  </div>
+
+  <style>
+    .crumbs {
+      color: var(--ink-muted);
+      font-size: 0.875rem;
+      margin-bottom: var(--space-3);
+    }
+    .trial-header {
+      display: flex;
+      gap: var(--space-4);
+      justify-content: space-between;
+      flex-wrap: wrap;
+      align-items: start;
+      margin-bottom: var(--space-5);
+    }
+    .lede {
+      font-size: var(--step-1);
+      color: var(--ink-muted);
+      margin: 0;
+      max-width: var(--measure);
+    }
+    .trial-body > section {
+      margin-top: var(--space-6);
+    }
+  </style>
+</Base>

@@ -1,0 +1,17 @@
+---
+import Base from '../layouts/Base.astro';
+import Shell from '../components/Shell.astro';
+---
+
+<Base
+  title="Archive"
+  section=""
+  description="The full history of meaningful platform events, filterable by kind."
+>
+  <Shell
+    title="Archive"
+    lede="The full history of meaningful platform events, filterable by kind."
+    status="PLANNED"
+    needs={['A live read of /api/v1/archive', 'Pagination and kind filters']}
+  />
+</Base>

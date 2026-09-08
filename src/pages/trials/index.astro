@@ -1,0 +1,157 @@
+---
+import Base from '../../layouts/Base.astro';
+import { trials, isPublished } from '../../lib/content';
+
+const all = trials().filter((t) => isPublished(t.lifecycle));
+const difficulties = ['intro', 'easy', 'medium', 'hard', 'expert'] as const;
+const topics = [...new Set(all.flatMap((t) => t.topics))].sort();
+---
+
+<Base
+  title="Trials"
+  section="trials"
+  description="Judged Rust practice with real compiler feedback."
+>
+  <div class="prose">
+    <h1>Trials</h1>
+    <p>
+      Judged practice. Public tests are visible; hidden tests run when you submit and probe the
+      cases the visible ones do not.
+    </p>
+  </div>
+
+  <!--
+    Filters are plain form controls and progressive: the page is fully usable
+    with no JavaScript, and filtering is a same-page enhancement rather than a
+    round trip.
+  -->
+  <form class="filters cluster" id="trial-filters">
+    <label>
+      <span>Status</span>
+      <select name="status" data-filter="status">
+        <option value="">All</option>
+        <option value="unsolved">Unsolved</option>
+        <option value="attempted">Attempted</option>
+        <option value="solved">Solved</option>
+      </select>
+    </label>
+    <label>
+      <span>Difficulty</span>
+      <select name="difficulty" data-filter="difficulty">
+        <option value="">All</option>
+        {difficulties.map((d) => <option value={d}>{d}</option>)}
+      </select>
+    </label>
+    <label>
+      <span>Topic</span>
+      <select name="topic" data-filter="topic">
+        <option value="">All</option>
+        {topics.map((t) => <option value={t}>{t}</option>)}
+      </select>
+    </label>
+  </form>
+
+  <ul class="list-reset trial-list" id="trial-list">
+    {
+      all.map((trial) => (
+        <li
+          class="trial"
+          data-difficulty={trial.difficulty}
+          data-topics={trial.topics.join(' ')}
+          data-slug={trial.slug}
+        >
+          <div>
+            <a href={`/trials/${trial.slug}`}>{trial.title}</a>
+            <p>{trial.summary}</p>
+          </div>
+          <div class="cluster">
+            <span class="tag">{trial.difficulty}</span>
+            {trial.topics.map((topic) => (
+              <span class="tag">{topic}</span>
+            ))}
+            <span class="badge badge--muted" data-status={trial.slug}>
+              Unsolved
+            </span>
+          </div>
+        </li>
+      ))
+    }
+  </ul>
+
+  {all.length === 0 && <p class="empty-state">No Trials are published yet.</p>}
+
+  <script>
+    // Status comes from local progress, not from a request. A signed-out reader
+    // still sees what they have attempted on this device.
+    const raw = localStorage.getItem('rustly:progress');
+    const progress: Record<string, { completion: string }> = raw ? JSON.parse(raw) : {};
+
+    for (const badge of document.querySelectorAll<HTMLElement>('[data-status]')) {
+      const slug = badge.dataset['status'];
+      const entry = progress[`trial/${slug}`];
+      if (!entry) continue;
+      if (entry.completion === 'completed' || entry.completion === 'mastered') {
+        badge.textContent = 'Solved';
+        badge.className = 'badge badge--success';
+        badge.closest('.trial')?.setAttribute('data-status', 'solved');
+      } else if (entry.completion === 'started') {
+        badge.textContent = 'Attempted';
+        badge.className = 'badge badge--warning';
+        badge.closest('.trial')?.setAttribute('data-status', 'attempted');
+      }
+    }
+
+    const form = document.getElementById('trial-filters');
+    form?.addEventListener('change', () => {
+      const data = new FormData(form as HTMLFormElement);
+      const status = String(data.get('status') ?? '');
+      const difficulty = String(data.get('difficulty') ?? '');
+      const topic = String(data.get('topic') ?? '');
+
+      for (const item of document.querySelectorAll<HTMLElement>('.trial')) {
+        const itemStatus = item.dataset['status'] ?? 'unsolved';
+        const matches =
+          (status === '' || itemStatus === status) &&
+          (difficulty === '' || item.dataset['difficulty'] === difficulty) &&
+          (topic === '' || (item.dataset['topics'] ?? '').split(' ').includes(topic));
+        item.hidden = !matches;
+      }
+    });
+  </script>
+
+  <style>
+    .filters {
+      margin-bottom: var(--space-5);
+      align-items: end;
+    }
+    .filters label {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+      font-size: 0.8125rem;
+      color: var(--ink-muted);
+    }
+    .filters select {
+      font: inherit;
+      padding: var(--space-2);
+      border: 1px solid var(--rule-strong);
+      border-radius: var(--radius);
+      background: var(--paper-raised);
+      color: var(--ink);
+    }
+    .trial {
+      display: flex;
+      gap: var(--space-4);
+      justify-content: space-between;
+      align-items: start;
+      flex-wrap: wrap;
+      padding: var(--space-4) 0;
+      border-bottom: 1px solid var(--rule);
+    }
+    .trial p {
+      margin: var(--space-1) 0 0;
+      color: var(--ink-muted);
+      font-size: 0.9375rem;
+    }
+  </style>
+</Base>

@@ -1,0 +1,32 @@
+---
+import Base from '../layouts/Base.astro';
+import Workspace from '../components/Workspace';
+
+const apiBase = import.meta.env['PUBLIC_RUSTLY_API'] ?? '';
+
+const starter = `fn main() {
+    let a = String::from("hello");
+    let b = a;
+    println!("{a}");
+    println!("{b}");
+}
+`;
+---
+
+<Base title="Workspace" section="workspace" description="A scratch Rust workspace.">
+  <div class="prose">
+    <h1>Workspace</h1>
+    <p>
+      A scratch pad. Predict first, then check. Your draft is saved in this browser and nowhere else
+      — nothing leaves the page until you submit a Trial.
+    </p>
+  </div>
+
+  <Workspace
+    client:load
+    slot="workspace:scratch"
+    starterCode={starter}
+    ariaLabel="Rust scratch workspace"
+    apiBase={apiBase}
+  />
+</Base>

@@ -1,0 +1,143 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: typecheck / lint / test / build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run lint
+      - run: pnpm run format
+      - run: pnpm run test
+
+      # `build` runs `astro build` and then scripts/check-build.mjs, which is
+      # where the properties that matter are actually asserted.
+      - name: Build and check build invariants
+        run: pnpm run build
+
+      - name: Report bundle size
+        run: |
+          set -euo pipefail
+          {
+            echo "### Bundle size"
+            echo ""
+            echo "| Page | HTML |"
+            echo "| --- | ---: |"
+            find dist -name 'index.html' -o -name '404.html' | sort | while read -r page; do
+              size=$(wc -c < "$page")
+              printf '| `%s` | %s KiB |\n' "${page#dist/}" "$(awk "BEGIN{printf \"%.1f\", $size/1024}")"
+            done
+            echo ""
+            echo "Total \`dist\`: $(du -sh dist | cut -f1)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: site
+          path: dist
+          retention-days: 7
+
+  a11y:
+    name: accessibility smoke
+    runs-on: ubuntu-latest
+    needs: [check]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: site
+          path: dist
+
+      # A floor, not a substitute for testing with real assistive technology.
+      # These are the failures that are cheap to catch and expensive to ship.
+      - name: Structural accessibility floor
+        run: |
+          set -euo pipefail
+          failures=0
+          while read -r page; do
+            name="${page#dist/}"
+
+            grep -q '<html[^>]*lang=' "$page" || { echo "::error::$name: no lang"; failures=$((failures+1)); }
+            grep -q 'class="skip-link"' "$page" || { echo "::error::$name: no skip link"; failures=$((failures+1)); }
+            grep -qE '<h1[ >]' "$page" || { echo "::error::$name: no h1"; failures=$((failures+1)); }
+
+            # Exactly one h1 per page.
+            h1s=$(grep -oE '<h1[ >]' "$page" | wc -l | tr -d ' ')
+            [ "$h1s" = "1" ] || { echo "::error::$name: $h1s h1 elements"; failures=$((failures+1)); }
+
+            # Every form control needs a label or an accessible name.
+            if grep -qE '<(input|select|textarea)\b' "$page"; then
+              grep -qE '(aria-label=|<label)' "$page" || {
+                echo "::error::$name: form controls with no labels"; failures=$((failures+1)); }
+            fi
+
+            # A link that says only "here" or "click here" is useless out of context.
+            if grep -qiE '>(click here|here)</a>' "$page"; then
+              echo "::error::$name: non-descriptive link text"; failures=$((failures+1))
+            fi
+
+            echo "ok  $name"
+          done < <(find dist -name '*.html' | sort)
+          [ "$failures" -eq 0 ] || { echo "$failures accessibility failure(s)"; exit 1; }
+
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '22'
+      - run: pnpm audit --audit-level high
+
+  pages:
+    name: deploy to GitHub Pages
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [check, a11y]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+        env:
+          PUBLIC_RUSTLY_API: ${{ vars.PUBLIC_RUSTLY_API }}
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: dist
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

@@ -1,0 +1,17 @@
+---
+import Base from '../layouts/Base.astro';
+import Shell from '../components/Shell.astro';
+---
+
+<Base
+  title="Recent"
+  section=""
+  description="Meaningful platform events from the last 24 hours. Not an activity feed."
+>
+  <Shell
+    title="Recent"
+    lede="Meaningful platform events from the last 24 hours. Not an activity feed."
+    status="PLANNED"
+    needs={['A live read of /api/v1/recent', 'Client-side filtering by event kind']}
+  />
+</Base>

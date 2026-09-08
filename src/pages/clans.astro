@@ -1,0 +1,17 @@
+---
+import Base from '../layouts/Base.astro';
+import Shell from '../components/Shell.astro';
+---
+
+<Base
+  title="Clans"
+  section="community"
+  description="Name, tag, membership, and member discovery. Nothing more."
+>
+  <Shell
+    title="Clans"
+    lede="Name, tag, membership, and member discovery. Nothing more."
+    status="PLANNED"
+    needs={['Clan directory reads from /api/v1/clans', 'Membership management']}
+  />
+</Base>

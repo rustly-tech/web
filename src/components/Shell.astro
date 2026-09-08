@@ -1,0 +1,47 @@
+---
+/**
+ * A coherent placeholder for a route that exists but is not built yet.
+ *
+ * It says plainly what the page will do and what is missing, rather than
+ * showing invented rankings or a fake activity feed. A shell that lies about
+ * being finished is worse than an empty page, because it hides the work.
+ */
+interface Props {
+  title: string;
+  lede: string;
+  status: 'PLANNED' | 'IMPLEMENTED' | 'EXPERIMENTAL';
+  needs: string[];
+}
+
+const { title, lede, status, needs } = Astro.props;
+---
+
+<div class="prose">
+  <h1>{title}</h1>
+  <p class="lede">{lede}</p>
+</div>
+
+<section class="panel" aria-labelledby="status-heading">
+  <div class="panel__header">
+    <span id="status-heading">Status</span>
+    <span class="badge badge--muted">{status}</span>
+  </div>
+  <div class="panel__body">
+    <p style="margin-top: 0;">This page is a shell. What it still needs:</p>
+    <ul style="margin-bottom: 0;">
+      {needs.map((item) => <li>{item}</li>)}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .lede {
+    font-size: var(--step-1);
+    color: var(--ink-muted);
+    max-width: var(--measure);
+  }
+  section {
+    margin-top: var(--space-5);
+    max-width: var(--measure);
+  }
+</style>

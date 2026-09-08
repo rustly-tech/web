@@ -1,0 +1,32 @@
+---
+import Base from '../../layouts/Base.astro';
+import { cheatsheets, isPublished } from '../../lib/content';
+
+const sheets = cheatsheets().filter((s) => isPublished(s.lifecycle));
+---
+
+<Base title="Cheatsheets" section="cheatsheets" description="Compact Rust references.">
+  <div class="prose">
+    <h1>Cheatsheets</h1>
+    <p>Organised by what you are trying to do, because that is how you read one mid-task.</p>
+  </div>
+
+  <div class="card-grid">
+    {
+      sheets.map((sheet) => (
+        <article class="card">
+          <h3>
+            <a href={`/cheatsheets/${sheet.id}`}>{sheet.title}</a>
+          </h3>
+          <p>{sheet.summary}</p>
+          <div class="card__meta">
+            <span class="tag">{sheet.entries.length} entries</span>
+            {sheet.topics.map((topic) => (
+              <span class="tag">{topic}</span>
+            ))}
+          </div>
+        </article>
+      ))
+    }
+  </div>
+</Base>

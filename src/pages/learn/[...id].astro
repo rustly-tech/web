@@ -1,0 +1,288 @@
+---
+import Base from '../../layouts/Base.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import OwnershipVisualiser from '../../components/OwnershipVisualiser';
+import PredictQuiz from '../../components/PredictQuiz';
+import Workspace from '../../components/Workspace';
+import {
+  cheatsheetsFor,
+  lessons,
+  lessonWithBody,
+  ossExamplesFor,
+  permalink,
+  quizzesFor,
+  trials,
+  isPublished,
+} from '../../lib/content';
+import { renderMarkdown } from '../../lib/markdown';
+
+export function getStaticPaths() {
+  return lessons()
+    .filter((lesson) => isPublished(lesson.lifecycle))
+    .map((lesson) => ({ params: { id: lesson.id } }));
+}
+
+const { id } = Astro.params;
+const lesson = lessonWithBody(id!);
+const body = renderMarkdown(lesson.bodyMarkdown);
+const quizzes = quizzesFor(lesson);
+const sheets = cheatsheetsFor(lesson);
+const examples = ossExamplesFor(lesson);
+const relatedTrials = trials().filter((t) => lesson.trials.includes(t.slug));
+
+// Empty in the static build. A deployment sets PUBLIC_RUSTLY_API to point the
+// workspace at a real compiler; without it the mock backend says so plainly.
+const apiBase = import.meta.env['PUBLIC_RUSTLY_API'] ?? '';
+const firstExample = lesson.examples[0];
+---
+
+<Base title={lesson.title} section="learn" description={lesson.summary}>
+  <div class="two-column">
+    <article>
+      <nav aria-label="Breadcrumb" class="crumbs">
+        <a href="/learn">Learn</a>
+        <span aria-hidden="true">/</span>
+        <span>{lesson.title}</span>
+      </nav>
+
+      <h1>{lesson.title}</h1>
+      <p class="lede">{lesson.summary}</p>
+
+      <div class="prose" set:html={body} />
+
+      {
+        lesson.visualisation && (
+          <section aria-labelledby="viz-section">
+            <h2 id="viz-section">See it happen</h2>
+            <OwnershipVisualiser client:visible visualisation={lesson.visualisation} />
+          </section>
+        )
+      }
+
+      <section aria-labelledby="examples-section">
+        <h2 id="examples-section">Examples</h2>
+        <p class="prose">
+          Each of these is checked by CI: the ones marked with an error code really do fail that
+          way, every time we build.
+        </p>
+        {
+          lesson.examples.map((example) => (
+            <CodeBlock
+              code={example.code.replace(/\n$/, '')}
+              caption={example.caption}
+              label={
+                example.expect.kind === 'compile_error'
+                  ? example.expect.code
+                  : example.expect.kind === 'runs'
+                    ? `prints ${JSON.stringify(example.expect.stdout)}`
+                    : 'compiles'
+              }
+              labelVariant={example.expect.kind === 'compile_error' ? 'error' : 'success'}
+            />
+          ))
+        }
+      </section>
+
+      {
+        quizzes.length > 0 && (
+          <section aria-labelledby="quiz-section" class="stack">
+            <h2 id="quiz-section">Check yourself</h2>
+            {quizzes.map((quiz) => (
+              <PredictQuiz client:visible quiz={quiz} />
+            ))}
+          </section>
+        )
+      }
+
+      {
+        firstExample && (
+          <section aria-labelledby="try-section">
+            <h2 id="try-section">Try it</h2>
+            <p class="prose">
+              Predict first, then check. Your draft is saved in this browser only — nothing is sent
+              anywhere until you submit a Trial.
+            </p>
+            <Workspace
+              client:visible
+              slot={`lesson:${lesson.id}`}
+              starterCode={firstExample.code}
+              ariaLabel={`Editor for ${lesson.title}`}
+              apiBase={apiBase}
+              progressKey={`learn/${lesson.id}`}
+            />
+          </section>
+        )
+      }
+
+      {
+        examples.length > 0 && (
+          <section aria-labelledby="oss-section">
+            <h2 id="oss-section">The same idea, in code that ships</h2>
+            {examples.map((example) => (
+              <article class="oss panel">
+                <div class="panel__header">
+                  <span>
+                    <code>{example.repository}</code>
+                  </span>
+                  <span class="tag">{example.license}</span>
+                </div>
+                <div class="panel__body stack">
+                  <p style="margin: 0;">{example.caption}</p>
+                  <p class="oss__meta">
+                    <a href={permalink(example)} target="_blank" rel="noreferrer">
+                      {example.path}:{example.line_start}-{example.line_end}
+                    </a>
+                    <span> at </span>
+                    <code>{example.commit.slice(0, 8)}</code>
+                    <span> · {example.attribution}</span>
+                  </p>
+                  {example.simplified && (
+                    <details>
+                      <summary>A simplified version of the same shape</summary>
+                      <pre>
+                        <code>{example.simplified.replace(/\n$/, '')}</code>
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              </article>
+            ))}
+            <p class="prose oss__note">
+              Every excerpt is pinned to an exact commit, never a branch, and CI checks that the
+              commit, file, and line range still resolve. Upstream licences and attribution are
+              recorded with the example.
+            </p>
+          </section>
+        )
+      }
+
+      {
+        relatedTrials.length > 0 && (
+          <section aria-labelledby="trials-section">
+            <h2 id="trials-section">Now try a Trial</h2>
+            <div class="card-grid">
+              {relatedTrials.map((trial) => (
+                <article class="card">
+                  <h3>
+                    <a href={`/trials/${trial.slug}`}>{trial.title}</a>
+                  </h3>
+                  <p>{trial.summary}</p>
+                  <div class="card__meta">
+                    <span class="tag">{trial.difficulty}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )
+      }
+
+      {
+        lesson.references.length > 0 && (
+          <section aria-labelledby="refs-section">
+            <h2 id="refs-section">Sources</h2>
+            <p class="prose oss__note">
+              This lesson is written from scratch. These are where to go for the authoritative
+              treatment.
+            </p>
+            <ul class="prose">
+              {lesson.references.map((reference) => (
+                <li>
+                  <a href={reference.url} target="_blank" rel="noreferrer">
+                    {reference.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
+    </article>
+
+    <aside class="sidebar">
+      {
+        sheets.map((sheet) => (
+          <section class="panel">
+            <div class="panel__header">
+              <span>{sheet.title}</span>
+              <a href={`/cheatsheets/${sheet.id}`} class="tag">
+                full sheet
+              </a>
+            </div>
+            <div class="panel__body">
+              <dl class="sheet">
+                {sheet.entries.slice(0, 6).map((entry) => (
+                  <>
+                    <dt>{entry.want}</dt>
+                    <dd>
+                      <pre>
+                        <code>{entry.code}</code>
+                      </pre>
+                    </dd>
+                  </>
+                ))}
+              </dl>
+            </div>
+          </section>
+        ))
+      }
+    </aside>
+  </div>
+
+  <style>
+    .crumbs {
+      color: var(--ink-muted);
+      font-size: 0.875rem;
+      margin-bottom: var(--space-3);
+    }
+    .lede {
+      font-size: var(--step-1);
+      color: var(--ink-muted);
+      max-width: var(--measure);
+    }
+    section {
+      margin-bottom: var(--space-6);
+    }
+    .oss {
+      margin-bottom: var(--space-4);
+    }
+    .oss__meta {
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--ink-muted);
+    }
+    .oss__note {
+      font-size: 0.875rem;
+      color: var(--ink-muted);
+    }
+    .sidebar {
+      position: sticky;
+      top: 64px;
+      align-self: start;
+    }
+    .sheet {
+      margin: 0;
+    }
+    .sheet dt {
+      font-size: 0.875rem;
+      color: var(--ink-muted);
+      margin-top: var(--space-3);
+    }
+    .sheet dt:first-child {
+      margin-top: 0;
+    }
+    .sheet dd {
+      margin: var(--space-1) 0 0;
+    }
+    .sheet pre {
+      margin: 0;
+      padding: var(--space-2);
+      font-size: 0.75rem;
+    }
+    details summary {
+      cursor: pointer;
+      font-size: 0.875rem;
+      color: var(--ink-muted);
+    }
+  </style>
+</Base>

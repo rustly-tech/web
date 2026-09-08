@@ -1,0 +1,21 @@
+---
+import Base from '../layouts/Base.astro';
+import Shell from '../components/Shell.astro';
+---
+
+<Base
+  title="Events"
+  section="community"
+  description="Official, topic, OSS, and community events, with featured Trials."
+>
+  <Shell
+    title="Events"
+    lede="Official, topic, OSS, and community events, with featured Trials."
+    status="PLANNED"
+    needs={[
+      'Event definitions in the content repository',
+      'An event archive',
+      'Optional leaderboards',
+    ]}
+  />
+</Base>
