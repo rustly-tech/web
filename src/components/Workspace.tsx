@@ -8,6 +8,12 @@ import {
   type RunResult,
 } from '../lib/compiler';
 import { clearDraft, createStore, loadDraft, recordProgress, saveDraft } from '../lib/local-store';
+import {
+  describeState,
+  HostedSubmissionClient,
+  SubmissionUnavailable,
+  type SubmissionState,
+} from '../lib/submissions';
 
 /**
  * The coding workspace: editor, Hard Check, Run, and Submit.
@@ -23,9 +29,9 @@ import { clearDraft, createStore, loadDraft, recordProgress, saveDraft } from '.
  * # What talks to the network
  *
  * Typing does not. Checking and running do not with the mock backend. A remote
- * backend may send code to its configured compiler endpoint. Submission remains
- * disabled until the data-plane upload and authenticated control-plane flow are
- * wired; inventing a CID without uploading bytes would violate invariant D.
+ * backend may send code to its configured compiler endpoint. Submit authenticates,
+ * uploads directly to artifact storage, and sends only the verified receipt and
+ * CID to the Rustly API.
  */
 
 /** One public test, shown to the reader. */
@@ -49,7 +55,7 @@ interface Props {
   progressKey?: string;
 }
 
-type Phase = 'idle' | 'checking' | 'running';
+type Phase = 'idle' | 'checking' | 'running' | 'submitting';
 
 const DRAFT_DEBOUNCE_MS = 600;
 
@@ -64,6 +70,7 @@ export default function Workspace({
 }: Props) {
   const store = useMemo(() => createStore(), []);
   const backend = useMemo(() => defaultBackend(apiBase), [apiBase]);
+  const submissions = useMemo(() => new HostedSubmissionClient(apiBase), [apiBase]);
 
   const [source, setSource] = useState(starterCode);
   const [restored, setRestored] = useState(false);
@@ -73,6 +80,7 @@ export default function Workspace({
   const [result, setResult] = useState<CheckResult | RunResult | null>(null);
   const [outage, setOutage] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [submissionState, setSubmissionState] = useState<SubmissionState | null>(null);
 
   // Restore a draft on mount. Doing it in an effect rather than in the initial
   // state keeps the server-rendered HTML identical for every reader.
@@ -136,6 +144,25 @@ export default function Workspace({
 
   const busy = phase !== 'idle';
 
+  const submit = useCallback(async () => {
+    if (!trial || !apiBase) return;
+    setPhase('submitting');
+    setOutage(null);
+    setSubmissionState(null);
+    try {
+      const finalState = await submissions.submit(trial, source, setSubmissionState);
+      if (finalState.verdict === 'AC' && progressKey) {
+        recordProgress(store, progressKey, 'completed');
+      }
+    } catch (error) {
+      setOutage(
+        error instanceof SubmissionUnavailable ? error.message : 'the submission could not start',
+      );
+    } finally {
+      setPhase('idle');
+    }
+  }, [apiBase, progressKey, source, store, submissions, trial]);
+
   return (
     <div className="workspace stack">
       <div className="workspace__toolbar cluster">
@@ -153,10 +180,11 @@ export default function Workspace({
           <button
             type="button"
             data-variant="primary"
-            disabled
-            title="Submission needs authenticated artifact upload and judge streaming, which are not connected yet"
+            disabled={busy || !apiBase}
+            title={apiBase ? 'Submit to the Rustly judge' : 'Hosted submissions are not configured'}
+            onClick={submit}
           >
-            Submit
+            {phase === 'submitting' ? 'Submitting…' : 'Submit'}
           </button>
         )}
         <button
@@ -248,6 +276,12 @@ export default function Workspace({
         <p className="notice notice--warning" role="alert">
           <strong>We could not run that.</strong> {outage}. This is a problem on our side, not with
           your code.
+        </p>
+      )}
+
+      {submissionState && (
+        <p className="notice notice--info" role="status">
+          <strong>Submission:</strong> {describeState(submissionState)}
         </p>
       )}
 
