@@ -24,7 +24,7 @@
     "@astrojs/react": "^6.0.5",
     "@astrojs/sitemap": "^3.7.4",
     "@noble/hashes": "2.4.0",
-    "astro": "^7.3.1",
+    "astro": "^7.3.5",
     "monaco-editor": "^0.56.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
@@ -38,10 +38,10 @@
     "astro-eslint-parser": "^3.1.0",
     "eslint": "^10.10.0",
     "eslint-plugin-astro": "^3.1.0",
-    "prettier": "^3.9.6",
+    "prettier": "^3.9.9",
     "prettier-plugin-astro": "^0.14.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.69.0",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.2"
   }
 }
