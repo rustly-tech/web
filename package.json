@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@astrojs/react": "^6.0.5",
-    "@astrojs/sitemap": "^3.7.4",
+    "@astrojs/sitemap": "^3.7.5",
     "@noble/hashes": "2.4.0",
     "astro": "^7.3.1",
     "monaco-editor": "^0.56.0",
@@ -30,7 +30,7 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.10",
+    "@astrojs/check": "^0.9.12",
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.5.0",
     "@types/react": "^19.2.18",
